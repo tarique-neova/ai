@@ -1,9 +1,10 @@
 import spacy
 
+
 class NLP_IAM:
     nlp = spacy.load("en_core_web_sm")
 
-    def extract_info(nlp,prompt):
+    def extract_info(nlp, prompt):
         doc = nlp(prompt)
 
         action = ""
@@ -21,6 +22,5 @@ class NLP_IAM:
                 username = token.nbor().text
             elif token.text.lower() in ["read", "write"]:
                 permissions.append(token.text.lower())
-        
-        return {"action":action,"username": username, "permissions": permissions}
 
+        return {"action": action, "username": username, "permissions": permissions}
