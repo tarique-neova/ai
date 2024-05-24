@@ -1,0 +1,8 @@
+Create a new user in AWS IAM
+Grant S3 read permissions to a user
+Delete an IAM user in AWS
+Create an S3 bucket in AWS
+List objects in an S3 bucket
+Configure IAM policies in AWS
+Add tags to an EC2 instance
+Launch an EC2 instance in AWS
