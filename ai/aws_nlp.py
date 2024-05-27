@@ -5,6 +5,68 @@ import getpass
 import spacy
 
 
+def create_iam_user(username, s3_permissions):
+    iam = boto3.client('iam')
+
+    response = iam.create_user(UserName=username)
+    user_arn = response['User']['Arn']
+
+    policy_document = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Action": s3_permissions,
+                "Resource": "arn:aws:s3:::*"
+            }
+        ]
+    }
+
+    iam.put_user_policy(
+        UserName=username,
+        PolicyName=f"{username}-s3-policy",
+        PolicyDocument=json.dumps(policy_document)
+    )
+
+    return user_arn
+
+
+def update_user_permissions(username, new_permissions):
+    iam = boto3.client('iam')
+
+    try:
+        existing_policy_response = iam.get_user_policy(UserName=username, PolicyName=f"{username}-s3-policy")
+        existing_policy_document = existing_policy_response['PolicyDocument']
+
+        # Update the permissions in the existing policy document
+        existing_policy_document['Statement'][0]['Action'] = new_permissions
+
+        # Update the policy with the new permissions
+        iam.put_user_policy(
+            UserName=username,
+            PolicyName=f"{username}-s3-policy",
+            PolicyDocument=json.dumps(existing_policy_document)
+        )
+
+        return f"Permissions updated for user {username}. New permissions: {', '.join(new_permissions)}"
+    except Exception as e:
+        return f"An error occurred: {e}"
+
+
+def map_permissions(permission_desc):
+    # Map natural language descriptions to S3 permissions
+    if 'least privileged' in permission_desc:
+        return ['s3:ListBucket', 's3:GetObject']
+    elif 'read' in permission_desc:
+        return ['s3:GetObject']
+    elif 'write' in permission_desc:
+        return ['s3:PutObject']
+    elif 'none' in permission_desc:
+        return []
+    else:
+        return []
+
+
 class AWSAIManager:
     def __init__(self, model_name="./fine_tuned_gpt2"):
         self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
@@ -21,65 +83,6 @@ class AWSAIManager:
         decoded_output = self.tokenizer.decode(output[0], skip_special_tokens=True)
         decoded_output = decoded_output.replace("//", "").replace("/", "")
         return decoded_output
-
-    def create_iam_user(self, username, s3_permissions):
-        iam = boto3.client('iam')
-
-        response = iam.create_user(UserName=username)
-        user_arn = response['User']['Arn']
-
-        policy_document = {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Action": s3_permissions,
-                    "Resource": "arn:aws:s3:::*"
-                }
-            ]
-        }
-
-        iam.put_user_policy(
-            UserName=username,
-            PolicyName=f"{username}-s3-policy",
-            PolicyDocument=json.dumps(policy_document)
-        )
-
-        return user_arn
-
-    def update_user_permissions(self, username, new_permissions):
-        iam = boto3.client('iam')
-
-        try:
-            existing_policy_response = iam.get_user_policy(UserName=username, PolicyName=f"{username}-s3-policy")
-            existing_policy_document = existing_policy_response['PolicyDocument']
-
-            # Update the permissions in the existing policy document
-            existing_policy_document['Statement'][0]['Action'] = new_permissions
-
-            # Update the policy with the new permissions
-            iam.put_user_policy(
-                UserName=username,
-                PolicyName=f"{username}-s3-policy",
-                PolicyDocument=json.dumps(existing_policy_document)
-            )
-
-            return f"Permissions updated for user {username}. New permissions: {', '.join(new_permissions)}"
-        except Exception as e:
-            return f"An error occurred: {e}"
-
-    def map_permissions(self, permission_desc):
-        # Map natural language descriptions to S3 permissions
-        if 'least privileged' in permission_desc:
-            return ['s3:ListBucket', 's3:GetObject']  # Example of least privileged permissions for S3
-        elif 'read' in permission_desc:
-            return ['s3:GetObject']
-        elif 'write' in permission_desc:
-            return ['s3:PutObject']
-        elif 'none' in permission_desc:
-            return []
-        else:
-            return []
 
     def parse_command(self, command):
         doc = self.nlp(command)
@@ -113,7 +116,7 @@ class AWSAIManager:
                 break
 
         # Map permissions description to actual permissions
-        permissions = self.map_permissions(permissions_desc) if permissions_desc else None
+        permissions = map_permissions(permissions_desc) if permissions_desc else None
 
         # Debugging print statements
         print("The parsing is printed for testing purpose only")
@@ -140,7 +143,7 @@ class AWSAIManager:
             action, username, permissions = self.parse_command(command)
             if action == 'create_user':
                 if username and permissions:
-                    user_arn = self.create_iam_user(username, permissions)
+                    user_arn = create_iam_user(username, permissions)
                     print(f"User {username} created with S3 permissions: {permissions}")
                     print(f"User ARN: {user_arn}")
 
@@ -155,7 +158,7 @@ class AWSAIManager:
 
             elif action == 'update_permissions':
                 if username and permissions:
-                    response = self.update_user_permissions(username, permissions)
+                    response = update_user_permissions(username, permissions)
                     print(response)
 
                     prompt = f"Updated permissions for user {username}. New permissions: {', '.join(permissions)}"
@@ -166,11 +169,15 @@ class AWSAIManager:
 
             elif command == "exit":
                 print("Exiting...")
+                print(
+                    "-------------------------------------------------------------------------------------------------")
                 break
 
             else:
                 bot_response = self.generate_response(command)
                 print("Generated Code: \n" + bot_response)
+                print(
+                    "-------------------------------------------------------------------------------------------------")
 
 
 if __name__ == "__main__":
