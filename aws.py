@@ -50,7 +50,7 @@ class AWSAIManager(NLP_IAM):
             if "add" in command:
                 command = command.replace("add", "create")
 
-            response = NLP_IAM.extract_info(nlp=NLP_IAM.nlp, prompt=command)
+            response = NLP_IAM.extract_info(self,nlp=NLP_IAM.nlp, prompt=command)
             action, username, permission = response["action"], response["username"], response["permissions"]
 
             print(f"Action: {action}, Username: {username}, Permissions: {permission}")
