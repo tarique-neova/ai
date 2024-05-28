@@ -75,8 +75,7 @@ class AWSAIManager:
             command = input(f"Hello {system_user}. How can I help you? \n").strip().lower()
             if "add" in command:
                 command = command.replace("add", "create")
-
-            print("Sure, will try my best to help you out with your ask \n")
+            print("Sure, will try my best to help you out with your ask")
 
             action, username, permissions = self.parse_command(command)
             if action == 'create_user':
@@ -112,8 +111,7 @@ class AWSAIManager:
                 break
 
             else:
-                bot_response = self.generate_response(command)
-                print("Generated Code: \n" + bot_response)
+                print("I am still not trained for your command. Still learning...")
                 print(
                     "-------------------------------------------------------------------------------------------------")
 
