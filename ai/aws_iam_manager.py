@@ -1,70 +1,8 @@
-import boto3
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
-import json
 import getpass
 import spacy
-
-
-def create_iam_user(username, s3_permissions):
-    iam = boto3.client('iam')
-
-    response = iam.create_user(UserName=username)
-    user_arn = response['User']['Arn']
-
-    policy_document = {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Effect": "Allow",
-                "Action": s3_permissions,
-                "Resource": "arn:aws:s3:::*"
-            }
-        ]
-    }
-
-    iam.put_user_policy(
-        UserName=username,
-        PolicyName=f"{username}-s3-policy",
-        PolicyDocument=json.dumps(policy_document)
-    )
-
-    return user_arn
-
-
-def update_user_permissions(username, new_permissions):
-    iam = boto3.client('iam')
-
-    try:
-        existing_policy_response = iam.get_user_policy(UserName=username, PolicyName=f"{username}-s3-policy")
-        existing_policy_document = existing_policy_response['PolicyDocument']
-
-        # Update the permissions in the existing policy document
-        existing_policy_document['Statement'][0]['Action'] = new_permissions
-
-        # Update the policy with the new permissions
-        iam.put_user_policy(
-            UserName=username,
-            PolicyName=f"{username}-s3-policy",
-            PolicyDocument=json.dumps(existing_policy_document)
-        )
-
-        return f"Permissions updated for user {username}. New permissions: {', '.join(new_permissions)}"
-    except Exception as e:
-        return f"An error occurred: {e}"
-
-
-def map_permissions(permission_desc):
-    # Map natural language descriptions to S3 permissions
-    if 'least privileged' in permission_desc:
-        return ['s3:ListBucket', 's3:GetObject']
-    elif 'read' in permission_desc:
-        return ['s3:GetObject']
-    elif 'write' in permission_desc:
-        return ['s3:PutObject']
-    elif 'none' in permission_desc:
-        return []
-    else:
-        return []
+from iam_user import IAMUser
+from permissions import MapPermissions
 
 
 class AWSAIManager:
@@ -116,7 +54,7 @@ class AWSAIManager:
                 break
 
         # Map permissions description to actual permissions
-        permissions = map_permissions(permissions_desc) if permissions_desc else None
+        permissions = MapPermissions.map_s3_permissions(permissions_desc) if permissions_desc else None
 
         # Debugging print statements
         print("The parsing is printed for testing purpose only")
@@ -143,7 +81,7 @@ class AWSAIManager:
             action, username, permissions = self.parse_command(command)
             if action == 'create_user':
                 if username and permissions:
-                    user_arn = create_iam_user(username, permissions)
+                    user_arn = IAMUser.create_iam_user(username, permissions)
                     print(f"User {username} created with S3 permissions: {permissions}")
                     print(f"User ARN: {user_arn}")
 
@@ -158,7 +96,7 @@ class AWSAIManager:
 
             elif action == 'update_permissions':
                 if username and permissions:
-                    response = update_user_permissions(username, permissions)
+                    response = IAMUser.update_user_permissions(username, permissions)
                     print(response)
 
                     prompt = f"Updated permissions for user {username}. New permissions: {', '.join(permissions)}"
