@@ -95,7 +95,7 @@ class AWSAIManager:
         for token in doc:
             if token.lemma_ in ["create", "update"] and token.dep_ == "ROOT":
                 action = "create_user" if token.lemma_ == "create" else "update_permissions"
-            elif token.lemma_ == "user" or token.lemma_ == "username":
+            elif token.lemma_ == "user" or token.lemma_ == "username" or token.lemma_ == "name":
                 username_index = token.i + 1
                 if username_index < len(doc):
                     username = doc[username_index].text
