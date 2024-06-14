@@ -51,7 +51,9 @@ def vulnerabilities_ai():
 
 
 def extract_docker_image_name(command):
-    match = re.search(r'image\s+([\w\-:./]+)', command, re.IGNORECASE)
+    match = re.search(r'for\s+([\w\-:./]+)\s+image', command, re.IGNORECASE)
+    if not match:
+        match = re.search(r'image\s+([\w\-:./]+)', command, re.IGNORECASE)
     if not match:
         match = re.search(r'vulnerabilities\s+for\s+([\w\-:./]+)', command, re.IGNORECASE)
     if match:
@@ -69,12 +71,18 @@ def scan_image(image_name, save_to_csv):
                 print("Scan completed successfully!")
                 vulnerabilities = result.stdout
                 save_vulnerabilities_to_csv(vulnerabilities, image_name)
+            else:
+                print("Scan failed!")
+                print(result.stderr)
         else:
             result = subprocess.run(["trivy", "image", image_name], capture_output=True, text=True)
             if result.returncode == 0:
                 print("Scan completed successfully!")
                 vulnerabilities = result.stdout
                 print(vulnerabilities)
+            else:
+                print("Scan failed!")
+                print(result.stderr)
     except FileNotFoundError:
         print("Trivy is not installed. Please install Trivy and try again.")
     except Exception as e:
@@ -115,6 +123,8 @@ def save_vulnerabilities_to_csv(vulnerabilities_json, image_name):
 
     except json.JSONDecodeError as e:
         print(f"Failed to parse JSON: {e}")
+    except Exception as e:
+        print(f"An error occurred while saving to CSV: {e}")
 
 
 def main():
