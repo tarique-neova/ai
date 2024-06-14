@@ -162,3 +162,4 @@ fine_tuned_gpt2/
 .idea/
 .terraform*
 terraform.tfstate*
+*.csv

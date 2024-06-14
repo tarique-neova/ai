@@ -35,18 +35,20 @@ def chat_with_user():
 
         if chat_completion.choices:
             print("Certainly! Let me do it for you !!!")
+
             terraform_code = chat_completion.choices[0].message.content
             terraform_code = clean_terraform_code(terraform_code)
-            print(terraform_code)
+            if "give" in prompt or "show" in prompt or "display" in prompt:
+                print(terraform_code)
+                with open("terraform_code.tf", "w") as file:
+                    file.write(terraform_code)
 
-            with open("terraform_code.tf", "w") as file:
-                file.write(terraform_code)
-
-            print("Terraform code has also been written to terraform_code.tf")
-            remove_quotes("terraform_code.tf")
-
-            if 'create' in prompt:
+                print("Terraform code has also been written to terraform_code.tf")
+                remove_quotes("terraform_code.tf")
+            else:
+                print(terraform_code)
                 run_terraform()
+                remove_terraform_init_files()
         else:
             print("Sorry I'm unable to understand your command")
 
@@ -57,8 +59,14 @@ def clean_terraform_code(code):
     terraform_lines = [
         line for line in code_lines
         if not line.strip().startswith("Here is")
+        if not line.strip().startswith("terraform")
     ]
     return '\n'.join(terraform_lines)
+
+
+def remove_terraform_init_files():
+    subprocess.run(["sudo", "rm", "-r", ".terraform", ".terraform.lock.hcl", "terraform.tfstate"], capture_output=True,
+                   text=True)
 
 
 def run_terraform():
