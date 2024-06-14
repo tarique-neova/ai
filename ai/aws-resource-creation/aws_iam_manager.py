@@ -31,8 +31,13 @@ class AWSAIManager:
         permissions_desc = None
 
         for token in doc:
-            if token.lemma_ in ["create", "update"] and token.dep_ == "ROOT":
-                action = "create_user" if token.lemma_ == "create" else "update_permissions"
+            if token.lemma_ in ["create", "update", "delete"] and token.dep_ == "ROOT":
+                if token.lemma_ == "create":
+                    action = "create_user"
+                elif token.lemma_ == "update":
+                    action = "update_permissions"
+                elif token.lemma_ == "delete":
+                    action = "delete_user"
             elif token.lemma_ == "user" or token.lemma_ == "username" or token.lemma_ == "name":
                 username_index = token.i + 1
                 if username_index < len(doc):
@@ -56,12 +61,18 @@ class AWSAIManager:
         # Map permissions description to actual permissions
         permissions = MapPermissions.map_s3_permissions(permissions_desc) if permissions_desc else None
 
+        # Additional parsing for commands like "delete user"
+        if not action and "delete user" in command:
+            action = "delete_user"
+            username = command.split("delete user")[1].split("from")[0].strip()
+
         # Debugging print statements
         print("The parsing is printed for testing purpose only")
         print("-------------------------------------------------------------------------------------------------")
         print(f"Parsed action: {action}")
         print(f"Parsed username: {username}")
-        print(f"Parsed permissions: {permissions}")
+        if action == "create_user" or action == "update_permissions":
+            print(f"Parsed permissions: {permissions}")
         print("-------------------------------------------------------------------------------------------------")
 
         return action, username, permissions
@@ -75,7 +86,7 @@ class AWSAIManager:
             command = input(f"Hello {system_user}. How can I help you? \n").strip().lower()
             if "add" in command:
                 command = command.replace("add", "create")
-            print("Sure, will try my best to help you out with your ask")
+            print("Certainly! Let me do it for you.")
 
             action, username, permissions = self.parse_command(command)
             if action == 'create_user':
@@ -103,6 +114,17 @@ class AWSAIManager:
                     print("Response: " + bot_response)
                 else:
                     print("Invalid command. Please provide a valid username and permissions.")
+
+            elif action == 'delete_user':
+                if username:
+                    response = IAMUser.delete_iam_user(username)
+                    print(response)
+
+                    prompt = f"Deleted user {username}."
+                    bot_response = self.generate_response(prompt)
+                    print("Response: " + bot_response)
+                else:
+                    print("Invalid command. Please provide a valid username.")
 
             elif command == "exit":
                 print("Exiting...")

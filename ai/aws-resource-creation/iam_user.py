@@ -48,3 +48,18 @@ class IAMUser:
             return f"Permissions updated for user {username}. New permissions: {', '.join(new_permissions)}"
         except Exception as e:
             return f"An error occurred: {e}"
+
+    def delete_iam_user(username):
+        iam = boto3.client('iam')
+
+        try:
+            # Detach all policies
+            policies = iam.list_user_policies(UserName=username)['PolicyNames']
+            for policy in policies:
+                iam.delete_user_policy(UserName=username, PolicyName=policy)
+
+            # Delete the user
+            iam.delete_user(UserName=username)
+            return f"User {username} deleted successfully."
+        except Exception as e:
+            return f"An error occurred: {e}"

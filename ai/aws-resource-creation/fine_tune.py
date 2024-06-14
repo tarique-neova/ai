@@ -7,7 +7,15 @@ data = [
     "I want to create a new user in iam",
     "Can you create a new user in AWS IAM",
     "Please create a new user in AWS IAM",
-    "Add new user in AWS IAM"
+    "Add new user in AWS IAM",
+    "Update user in AWS IAM",
+    "Can you please update user aws iam",
+    "Please update user with name in aws iam",
+    "Update user with username in aws iam",
+    "Delete user from aws iam",
+    "Delete user with username from aws iam",
+    "Remove user from aws iam",
+    "Remove user with username from aws iam"
 ]
 
 # Create a dataset object
