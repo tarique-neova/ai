@@ -51,15 +51,17 @@ def vulnerabilities_ai():
 
 
 def extract_docker_image_name(command):
-    match = re.search(r'for\s+([\w\-:./]+)\s+image', command, re.IGNORECASE)
-    if not match:
-        match = re.search(r'image\s+([\w\-:./]+)', command, re.IGNORECASE)
-    if not match:
-        match = re.search(r'vulnerabilities\s+for\s+([\w\-:./]+)', command, re.IGNORECASE)
-    if match:
-        return match.group(1)
-    else:
-        return None
+    patterns = [
+        r'for\s+docker\s+image\s+([\w\-:./]+)',  # for docker image <image>
+        r'image\s+([\w\-:./]+)',  # image <image>
+        r'vulnerabilities\s+for\s+([\w\-:./]+)',  # vulnerabilities for <image>
+        r'scan\s+docker\s+image\s+([\w\-:./]+)',  # scan docker image <image>
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, command, re.IGNORECASE)
+        if match:
+            return match.group(1)
+    return None
 
 
 def scan_image(image_name, save_to_csv):
