@@ -31,7 +31,7 @@ def chat_with_user():
         "providers. Also do not include any other text other than the Terraform code block."
     )
     chat_completion = openai.ChatCompletion.create(
-        model="gpt-4",
+        model="gpt-4o",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": f"{prompt}{prompt_end}"}
