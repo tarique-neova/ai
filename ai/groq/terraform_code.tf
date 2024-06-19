@@ -1,4 +1,4 @@
 
-resource "aws_iam_user" "test_ai" {
-  name = "test-ai+"
+resource "aws_iam_user" "test" {
+  name = "test${replace(local.username, ".", "")}345"
 }

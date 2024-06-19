@@ -43,12 +43,12 @@ def chat_with_user():
             file.write(terraform_code)
         remove_quotes("terraform_code.tf")
         if "give" in prompt or "show" in prompt or "display" in prompt:
-            st.write("Terraform code -")
+            st.write("Here is the terraform code to create requested resource")
             st.code(terraform_code, language='hcl')
         else:
-            st.write("Terraform code -")
+            st.write("Here is the terraform code to create requested resource")
             st.code(terraform_code, language='hcl')
-            st.write("Creating requested resource...")
+            st.write("Creating requested resource. This may take couple of minutes.")
             run_terraform()
             st.write("Requested resource has been created successfully...")
             remove_terraform_init_files()
