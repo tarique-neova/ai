@@ -58,43 +58,44 @@ def extract_docker_image_name(command):
     return None
 
 
-def scan_image(image_name, display_vulnerabilities, save_to_csv):
+def run_trivy_scan(image_name, format_type):
     try:
-        st.write(f"Scanning image {image_name} for vulnerabilities...")
-
-        # Run the scan and get the output
-        result = subprocess.run(["trivy", "image", image_name], capture_output=True, text=True)
+        result = subprocess.run(["trivy", "image", f"--format={format_type}", image_name], capture_output=True,
+                                text=True)
         if result.returncode == 0:
-            vulnerabilities = result.stdout
-
-            # Check if no vulnerabilities found
-            if "No vulnerabilities found" in vulnerabilities:
-                st.write("No vulnerabilities found.")
-                if save_to_csv:
-                    create_empty_csv(image_name)
-            else:
-                if save_to_csv and display_vulnerabilities:
-                    result = subprocess.run(["trivy", "image", "--format", "json", image_name], capture_output=True,
-                                            text=True)
-                    vulnerabilities_json = result.stdout
-                    save_vulnerabilities_to_csv(vulnerabilities_json, image_name)
-                    st.code(vulnerabilities)
-                elif save_to_csv:
-                    result = subprocess.run(["trivy", "image", "--format", "json", image_name], capture_output=True,
-                                            text=True)
-                    vulnerabilities_json = result.stdout
-                    save_vulnerabilities_to_csv(vulnerabilities_json, image_name)
-                elif display_vulnerabilities:
-                    st.code(vulnerabilities)
-
+            return result.stdout
         else:
             st.error("Scan failed!")
             st.error(result.stderr)
-
+            return None
     except FileNotFoundError:
         st.error("Trivy is not installed. Please install Trivy and try again.")
+        return None
     except Exception as e:
         st.error(f"An error occurred: {e}")
+        return None
+
+
+def scan_image(image_name, display_vulnerabilities, save_to_csv):
+    st.write(f"Scanning image {image_name} for vulnerabilities...")
+
+    vulnerabilities = run_trivy_scan(image_name, "table")
+    if vulnerabilities:
+        # Check if no vulnerabilities found
+        if "No vulnerabilities found" in vulnerabilities:
+            st.write("No vulnerabilities found.")
+            if save_to_csv:
+                create_empty_csv(image_name)
+        else:
+            if save_to_csv and display_vulnerabilities:
+                vulnerabilities_json = run_trivy_scan(image_name, "json")
+                save_vulnerabilities_to_csv(vulnerabilities_json, image_name)
+                st.code(vulnerabilities)
+            elif save_to_csv:
+                vulnerabilities_json = run_trivy_scan(image_name, "json")
+                save_vulnerabilities_to_csv(vulnerabilities_json, image_name)
+            elif display_vulnerabilities:
+                st.code(vulnerabilities)
 
 
 def create_empty_csv(image_name):
