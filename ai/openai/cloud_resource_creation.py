@@ -59,7 +59,6 @@ def chat_with_user():
             st.code(cleaned_code, language='hcl')
             st.write("Creating the requested resource. This may take a couple of minutes.")
             run_terraform()
-            st.write("The requested resource has been created successfully.")
             remove_terraform_init_files()
     else:
         st.write("Sorry, I'm unable to understand your command.")
@@ -96,8 +95,12 @@ def run_terraform():
         st.write("Terraform initialization complete.")
 
         st.write("Applying Terraform changes...")
-        subprocess.run(["terraform", "apply", "-auto-approve"], check=True)  # Apply the Terraform configuration
-        st.write("Terraform apply completed successfully.")
+        apply_result = subprocess.run(["terraform", "apply", "-auto-approve"],
+                                      check=True)
+        if apply_result.returncode == 0:
+            st.write("Terraform apply completed successfully.")
+        else:
+            st.error("Error applying Terraform configuration. Resource creation failed.")
     except FileNotFoundError:
         st.error("Terraform is not installed or not in the PATH. Please install Terraform and try again.")
     except subprocess.CalledProcessError as e:
