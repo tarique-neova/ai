@@ -73,16 +73,19 @@ def scan_image(image_name, display_vulnerabilities, save_to_csv):
                 if save_to_csv:
                     create_empty_csv(image_name)
             else:
-                if save_to_csv:
-                    # Run the scan again with JSON output
+                if save_to_csv and display_vulnerabilities:
                     result = subprocess.run(["trivy", "image", "--format", "json", image_name], capture_output=True,
                                             text=True)
                     vulnerabilities_json = result.stdout
                     save_vulnerabilities_to_csv(vulnerabilities_json, image_name)
-
-                # Display vulnerabilities if required
-                if display_vulnerabilities and not save_to_csv:
-                    st.text(vulnerabilities)
+                    st.code(vulnerabilities)
+                elif save_to_csv:
+                    result = subprocess.run(["trivy", "image", "--format", "json", image_name], capture_output=True,
+                                            text=True)
+                    vulnerabilities_json = result.stdout
+                    save_vulnerabilities_to_csv(vulnerabilities_json, image_name)
+                elif display_vulnerabilities:
+                    st.code(vulnerabilities)
 
         else:
             st.error("Scan failed!")
