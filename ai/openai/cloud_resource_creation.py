@@ -30,7 +30,7 @@ def chat_with_user():
     )
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="ft:gpt-3.5-turbo-0125:neova-solutions::9eyIoeqZ",
         messages=[
             {"role": "system",
              "content": "You are a poetic assistant, skilled in explaining complex programming concepts "
@@ -115,7 +115,7 @@ def on_prompt_change():
 
 
 def main():
-    st.title("Cloud Security AI")
+    st.title("Cloud Resource Creation")
     st.text_input("Enter your prompt:", key="prompt", on_change=on_prompt_change)
 
 

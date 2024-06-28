@@ -1,5 +1,6 @@
 __pycache__/
 main.tf
+terraform_code.tf
 *.py[cod]
 *$py.class
 *.so

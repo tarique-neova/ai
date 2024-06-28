@@ -1,18 +1,16 @@
-import re
 import subprocess
 import os
 import csv
 import json
-import openai
 from dotenv import load_dotenv
 import streamlit as st
+from openai import OpenAI
 
 # Load the .env file
 load_dotenv()
 
-# Set your OpenAI API key
-api_key = os.getenv("OPENAI_API_KEY")
-openai.api_key = api_key
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+prompt = ""
 
 
 def docker_login(username, password):
@@ -27,72 +25,97 @@ def docker_login(username, password):
 
 
 def chat_with_user(prompt):
-    chat_completion = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "system",
+             "content": "Only give response for docker images. Detect the docker image from the prompt and scan it "
+                        "for vulnerabilities as per the prompt message. Image name will be in the format "
+                        "image_name:tag. Replace the image_name variable on runtime"},
             {"role": "user", "content": f"{prompt}"}
-        ],
-        max_tokens=200,
-        n=1,
-        stop=None,
-        temperature=0.5
+        ]
     )
 
-    if chat_completion.choices:
-        user_message = chat_completion.choices[0].message['content'].strip()
+    if response.choices:
+        user_message = response.choices[0].message.content.strip()
         return user_message
     else:
         return "Sorry, I'm unable to understand your command."
 
 
-def extract_docker_image_name(command):
-    patterns = [
-        r'for\s+docker\s+image\s+([\w\-:./]+)',  # for docker image <image>
-        r'image\s+([\w\-:./]+)',  # image <image>
-        r'vulnerabilities\s+for\s+([\w\-:./]+)',  # vulnerabilities for <image>
-        r'scan\s+docker\s+image\s+([\w\-:./]+)',  # scan docker image <image>
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, command, re.IGNORECASE)
-        if match:
-            return match.group(1)
-    return None
-
-
-def scan_image(image_name, save_to_csv):
+def run_trivy_scan(format_type, image_name):
     try:
-        st.write(f"Scanning image {image_name} for vulnerabilities...")
-        if save_to_csv:
-            result = subprocess.run(["trivy", "image", "--format", "json", image_name], capture_output=True, text=True)
-            if result.returncode == 0:
-                st.write("Scan completed successfully!")
-                vulnerabilities = result.stdout
-                save_vulnerabilities_to_csv(vulnerabilities, image_name)
-            else:
-                st.error("Scan failed!")
-                st.error(result.stderr)
+        # Remove any leading/trailing whitespace and newline characters from the image name
+        image_name = image_name.strip().strip(":. ")
+        st.write(f"Running Trivy scan on image: '{image_name}' with format: {format_type}")
+
+        # Print the command for debugging
+        command = ["trivy", "image", f"--format={format_type}", image_name]
+        st.write(f"Executing command: {' '.join(command)}")
+
+        result = subprocess.run(command, capture_output=True, text=True)
+
+        st.write(f"Trivy scan completed with return code: {result.returncode}")
+        if result.returncode == 0:
+            return result.stdout
         else:
-            result = subprocess.run(["trivy", "image", image_name], capture_output=True, text=True)
-            if result.returncode == 0:
-                st.write("Scan completed successfully!")
-                vulnerabilities = result.stdout
-                st.text(vulnerabilities)
-            else:
-                st.error("Scan failed!")
-                st.error(result.stderr)
+            st.error("Scan failed!")
+            st.error(result.stderr)
+            return None
     except FileNotFoundError:
         st.error("Trivy is not installed. Please install Trivy and try again.")
+        return None
     except Exception as e:
         st.error(f"An error occurred: {e}")
+        return None
+
+
+def scan_image(image_name, display_vulnerabilities, save_to_csv):
+    st.write(f"Scanning image {image_name} for vulnerabilities...")
+
+    vulnerabilities = run_trivy_scan("table", image_name)
+    if vulnerabilities:
+        # Check if no vulnerabilities found
+        if "No vulnerabilities found" in vulnerabilities:
+            st.write("No vulnerabilities found.")
+            if save_to_csv:
+                create_empty_csv(image_name)
+        else:
+            if save_to_csv and display_vulnerabilities:
+                vulnerabilities_json = run_trivy_scan("json", image_name)
+                save_vulnerabilities_to_csv(vulnerabilities_json, image_name)
+                st.code(vulnerabilities)
+                st.write("Vulnerability Scan Completed!!!")
+            elif save_to_csv:
+                vulnerabilities_json = run_trivy_scan("json", image_name)
+                save_vulnerabilities_to_csv(vulnerabilities_json, image_name)
+            elif display_vulnerabilities:
+                st.code(vulnerabilities)
+                st.write("Vulnerability Scan Completed!!!")
+    else:
+        st.write("No output from Trivy. Please check the image name and try again.")
+        if save_to_csv:
+            create_empty_csv(image_name)
+
+
+def create_empty_csv(image_name):
+    csv_file = f"{image_name.replace(':', '_').replace('/', '_')}_vulnerabilities.csv"
+    with open(csv_file, 'w', newline='') as csvfile:
+        fieldnames = ['Target', 'Type', 'VulnerabilityID', 'PkgName', 'InstalledVersion', 'FixedVersion',
+                      'Severity', 'Title', 'Description']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+
+    st.write(f"Created empty file: {csv_file}")
 
 
 def save_vulnerabilities_to_csv(vulnerabilities_json, image_name):
     try:
         vulnerabilities_data = json.loads(vulnerabilities_json)
 
-        if 'Results' not in vulnerabilities_data or len(vulnerabilities_data['Results']) == 0:
+        if 'Results' not in vulnerabilities_data or not vulnerabilities_data['Results']:
             st.write("No vulnerabilities found.")
+            create_empty_csv(image_name)
             return
 
         csv_file = f"{image_name.replace(':', '_').replace('/', '_')}_vulnerabilities.csv"
@@ -125,23 +148,46 @@ def save_vulnerabilities_to_csv(vulnerabilities_json, image_name):
         st.error(f"An error occurred while saving to CSV: {e}")
 
 
+def extract_image_name_from_gpt(response):
+    st.write(f"Extracting image name from GPT response: {response}")
+    tokens = response.split()
+    for i, token in enumerate(tokens):
+        if token.lower() == 'docker' and tokens[i + 1].lower() == 'image':
+            image_name = tokens[i + 2].strip().strip(":. ")
+            st.write(f"Extracted image name: {image_name}")
+            return image_name
+        if token.lower() == 'vulnerabilities' and tokens[i + 1].lower() == 'for':
+            image_name = tokens[i + 2].strip().strip(":. ")
+            st.write(f"Extracted image name: {image_name}")
+            return image_name
+        if token.lower() == 'image' and i < len(tokens) - 1:
+            image_name = tokens[i + 1].strip().strip(":. ")
+            st.write(f"Extracted image name: {image_name}")
+            return image_name
+    return None
+
+
+
+
 def on_prompt_change():
+    global prompt
     prompt = st.session_state.prompt
     response = chat_with_user(prompt)
     st.session_state.prompt = ''  # Clear the input field
 
-    image_name = extract_docker_image_name(prompt)
+    # Extract image name dynamically from GPT response
+    image_name = extract_image_name_from_gpt(response)
     if image_name:
-        image_name = image_name.rstrip('.')
-        save_to_csv = 'save' in prompt or 'file' in prompt
+        display_vulnerabilities = 'can' in prompt or 'display' in prompt or 'how' in prompt
+        save_to_csv = 'ave' in prompt or 'file' in prompt or 'export' in prompt
         st.write(f"Certainly! Scanning vulnerabilities for docker image {image_name}")
-        scan_image(image_name, save_to_csv)
+        scan_image(image_name, display_vulnerabilities, save_to_csv)
     else:
         st.write(response)
 
 
 def main():
-    st.title("Docker Vulnerability Scanner AI")
+    st.title("Docker Vulnerability Scanner")
     st.text_input("Enter your prompt:", key="prompt", on_change=on_prompt_change)
 
     username = os.getenv('DOCKER_USERNAME')
