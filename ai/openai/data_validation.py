@@ -3,7 +3,7 @@ import numpy as np
 import tiktoken  # Assuming 'tiktoken' is a valid library, adjust import as needed
 from collections import defaultdict
 
-data_path = "training.jsonl"
+data_path = "chat_formatted_data.jsonl"
 
 # Load the dataset
 dataset = []

@@ -30,7 +30,7 @@ def chat_with_user():
     )
 
     response = client.chat.completions.create(
-        model="ft:gpt-3.5-turbo-0125:neova-solutions::9eyIoeqZ",
+        model="ft:gpt-3.5-turbo-0125:neova-solutions::9g9dHreT",
         messages=[
             {"role": "system",
              "content": "You are a poetic assistant, skilled in explaining complex programming concepts "
