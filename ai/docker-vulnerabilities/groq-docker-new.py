@@ -40,7 +40,7 @@ def vulnerabilities_ai():
         if chat_completion.choices:
             image_name = extract_docker_image_name(prompt)
             if image_name:
-                image_name = image_name.rstrip('.')
+                image_name = image_name.strip()
                 save_to_csv = 'save' in prompt or 'file' in prompt
                 print(f"Certainly! Scanning vulnerabilities for docker image {image_name}")
                 scan_image(image_name, save_to_csv)
@@ -50,18 +50,18 @@ def vulnerabilities_ai():
             print("Sorry I'm unable to understand your command")
 
 
-def extract_docker_image_name(command):
-    patterns = [
-        r'for\s+docker\s+image\s+([\w\-:./]+)',  # for docker image <image>
-        r'image\s+([\w\-:./]+)',  # image <image>
-        r'vulnerabilities\s+for\s+([\w\-:./]+)',  # vulnerabilities for <image>
-        r'scan\s+docker\s+image\s+([\w\-:./]+)',  # scan docker image <image>
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, command, re.IGNORECASE)
-        if match:
-            return match.group(1)
-    return None
+def extract_docker_image_name(prompt):
+    end_prompt = "give me the docker image name only noting else from this sentence."
+    chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"{prompt}{end_prompt}",
+                }
+            ],
+            model="llama3-8b-8192",
+        )
+    return(chat_completion.choices[0].message.content)
 
 
 def scan_image(image_name, save_to_csv):
